@@ -28,6 +28,7 @@ elements.scan.addEventListener("click", () => startJob("scan"));
 elements.follow.addEventListener("click", () => startJob("follow"));
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "job-progress" || message?.type === "job-complete") renderJob(message.job);
+  if (message?.type === "job-paused") renderJob(message.job);
   if (message?.type === "job-error") {
     setBusy(false);
     elements.note.textContent = message.job?.error || "任务失败，请稍后重试";
@@ -70,16 +71,24 @@ function renderJob(job) {
   const processed = job.results?.length || 0;
   const percent = job.mode === "follow" ? Math.min((job.followed / MAX_FOLLOWS_PER_BATCH) * 100, 100) : (processed / job.urls.length) * 100;
   elements.meterFill.style.width = `${Number.isFinite(percent) ? percent : 0}%`;
-  elements.meterText.textContent = job.status === "complete" ? `${processed} 个已完成` : `正在处理 ${Math.min(job.current, job.urls.length)} / ${job.urls.length}`;
+  elements.meterText.textContent = job.status === "complete" ? `${processed} 个已完成` : job.status === "paused" ? "已暂停保护" : job.phase === "cooldown" ? "安全等待中" : `正在处理 ${Math.min(job.current, job.urls.length)} / ${job.urls.length}`;
+  if (job.phase === "cooldown") {
+    elements.note.textContent = "安全等待中：复用同一个后台标签页，避免连续请求 X…";
+  }
   if (job.status === "complete") {
     setBusy(false);
     elements.note.textContent = job.mode === "follow" ? `本次已关注 ${job.followed} 个，剩余未关注账号已排队` : "检测完成，可切换到一键关注";
     if (job.mode === "follow" && job.completedAt) elements.lastBatch.textContent = formatTime(job.completedAt);
   }
+  if (job.status === "paused") {
+    setBusy(false);
+    elements.note.textContent = job.error || "任务已暂停，请等待 X 恢复后再继续";
+    if (job.mode === "follow" && job.completedAt) elements.lastBatch.textContent = formatTime(job.completedAt);
+  }
 }
 
 function renderResults(results, total, followed, status) {
-  elements.summary.textContent = status === "running" ? `${results.length} / ${total} 已读取` : `${followed} 个已关注 · ${total} 个总计`;
+  elements.summary.textContent = status === "running" || status === "paused" ? `${results.length} / ${total} 已处理` : `${followed} 个已关注 · ${total} 个总计`;
   if (!results.length) {
     elements.list.innerHTML = '<div class="empty-state"><span>◎</span><p>粘贴一组主页地址，开始第一次巡检</p></div>';
     return;

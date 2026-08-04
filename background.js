@@ -2,6 +2,11 @@ import { parseXUrls } from "./url-utils.js";
 
 const MAX_FOLLOWS_PER_BATCH = 10;
 const PAGE_TIMEOUT_MS = 18000;
+const PROFILE_GAP_MS = 3500;
+const PROFILE_GAP_JITTER_MS = 1800;
+const LONG_PAUSE_EVERY = 15;
+const LONG_PAUSE_MS = 20000;
+const MAX_CONSECUTIVE_ERRORS = 3;
 
 let activeJob = null;
 
@@ -26,6 +31,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       current: 0,
       followed: 0,
       attempted: 0,
+      consecutiveErrors: 0,
+      phase: "starting",
       startedAt: new Date().toISOString(),
       results: []
     };
@@ -42,72 +49,95 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function runJob(job) {
-  for (let index = 0; index < job.urls.length; index += 1) {
-    job.current = index + 1;
-    const url = job.urls[index];
-    const shouldFollow = job.mode === "follow" && job.attempted < MAX_FOLLOWS_PER_BATCH;
-    broadcast({ type: "job-progress", job });
-    persistJob();
-
-    let result;
-    try {
-      result = await inspectUrl(url, shouldFollow);
-    } catch (error) {
-      result = {
-        url,
-        handle: handleFromUrl(url),
-        status: "error",
-        message: error instanceof Error ? error.message : "页面检测失败"
-      };
-    }
-
-    if (job.mode === "follow" && result.status === "not-following" && !shouldFollow) {
-      result.status = "queued";
-      result.message = "本批次已达 10 个上限";
-    }
-    if (result.status === "followed") {
-      job.followed += 1;
-      job.attempted += 1;
-    } else if (result.status === "failed" && shouldFollow) {
-      job.attempted += 1;
-    }
-    job.results.push(result);
-    broadcast({ type: "job-progress", job });
-    persistJob();
-  }
-
-  job.status = "complete";
-  job.completedAt = new Date().toISOString();
-  if (job.mode === "follow") {
-    await chrome.storage.local.set({ lastBatchAt: job.completedAt });
-  }
-  await chrome.storage.local.set({ lastResults: job.results, lastMode: job.mode });
+  const tab = await chrome.tabs.create({ url: "about:blank", active: false });
+  job.workerTabId = tab.id;
   persistJob();
-  broadcast({ type: "job-complete", job });
-}
 
-async function inspectUrl(url, shouldFollow) {
-  const tab = await chrome.tabs.create({ url, active: false });
   try {
-    await waitForTabLoad(tab.id);
-    const response = await sendToTab(tab.id, {
-      type: "inspect-profile",
-      follow: shouldFollow
-    });
-    if (!response?.ok) throw new Error(response?.message || "无法读取主页状态");
-    return { url, ...response.data };
-  } finally {
-    if (tab.id) {
+    for (let index = 0; index < job.urls.length; index += 1) {
+      if (job.mode === "follow" && job.attempted >= MAX_FOLLOWS_PER_BATCH) {
+        appendQueuedResults(job, index, "本批次已达 10 个关注上限");
+        break;
+      }
+
+      await waitBetweenProfiles(job, index);
+      job.current = index + 1;
+      job.phase = "loading";
+      const url = job.urls[index];
+      const shouldFollow = job.mode === "follow" && job.attempted < MAX_FOLLOWS_PER_BATCH;
+      broadcast({ type: "job-progress", job });
+      persistJob();
+
+      let result;
       try {
-        await chrome.tabs.remove(tab.id);
-      } catch {
-        // The tab may already be closed by the user.
+        result = await inspectUrl(tab.id, url, shouldFollow);
+      } catch (error) {
+        result = {
+          url,
+          handle: handleFromUrl(url),
+          status: "error",
+          message: error instanceof Error ? error.message : "页面检测失败"
+        };
+      }
+
+      if (job.mode === "follow" && result.status === "not-following" && !shouldFollow) {
+        result.status = "queued";
+        result.message = "本批次已达 10 个上限";
+      }
+      if (result.status === "followed") {
+        job.followed += 1;
+        job.attempted += 1;
+      } else if (result.status === "failed" && shouldFollow) {
+        job.attempted += 1;
+      }
+      if (["error", "unavailable", "failed"].includes(result.status)) {
+        job.consecutiveErrors += 1;
+      } else {
+        job.consecutiveErrors = 0;
+      }
+      job.results.push(result);
+      broadcast({ type: "job-progress", job });
+      persistJob();
+
+      if (job.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        appendQueuedResults(job, index + 1, "检测连续异常，已自动暂停保护 X 会话");
+        job.status = "paused";
+        job.error = "连续 3 个主页无法读取，任务已暂停。请等待 X 恢复后再继续。";
+        break;
       }
     }
+
+    if (job.status !== "paused") job.status = "complete";
+    job.phase = job.status;
+    job.completedAt = new Date().toISOString();
+    if (job.mode === "follow") {
+      await chrome.storage.local.set({ lastBatchAt: job.completedAt });
+    }
+    await chrome.storage.local.set({ lastResults: job.results, lastMode: job.mode });
+    persistJob();
+    broadcast({ type: job.status === "paused" ? "job-paused" : "job-complete", job });
+  } finally {
+    try {
+      await chrome.tabs.remove(tab.id);
+    } catch {
+      // The worker tab may already be closed by the user.
+    }
+    delete job.workerTabId;
+    persistJob();
   }
 }
 
-function waitForTabLoad(tabId) {
+async function inspectUrl(tabId, url, shouldFollow) {
+  await navigateAndWait(tabId, url);
+  const response = await sendToTab(tabId, {
+    type: "inspect-profile",
+    follow: shouldFollow
+  });
+  if (!response?.ok) throw new Error(response?.message || "无法读取主页状态");
+  return { url, ...response.data };
+}
+
+function navigateAndWait(tabId, url) {
   return new Promise((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => finish(new Error("页面加载超时")), PAGE_TIMEOUT_MS);
@@ -124,10 +154,32 @@ function waitForTabLoad(tabId) {
     }
 
     chrome.tabs.onUpdated.addListener(onUpdated);
-    chrome.tabs.get(tabId).then((tab) => {
-      if (tab.status === "complete") finish();
-    }).catch(() => finish(new Error("标签页已关闭")));
+    chrome.tabs.update(tabId, { url }).catch(() => finish(new Error("标签页已关闭")));
   });
+}
+
+async function waitBetweenProfiles(job, index) {
+  if (index === 0) return;
+  const isLongPause = index % LONG_PAUSE_EVERY === 0;
+  const waitMs = isLongPause ? LONG_PAUSE_MS : PROFILE_GAP_MS + Math.floor(Math.random() * PROFILE_GAP_JITTER_MS);
+  job.phase = "cooldown";
+  job.nextActionAt = new Date(Date.now() + waitMs).toISOString();
+  broadcast({ type: "job-progress", job });
+  persistJob();
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
+}
+
+function appendQueuedResults(job, startIndex, message) {
+  for (let index = startIndex; index < job.urls.length; index += 1) {
+    const url = job.urls[index];
+    job.results.push({
+      url,
+      handle: handleFromUrl(url),
+      status: "queued",
+      message
+    });
+  }
+  job.current = job.urls.length;
 }
 
 async function sendToTab(tabId, message) {

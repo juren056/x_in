@@ -11,7 +11,7 @@ X Follow Audit accepts pasted text rather than requiring a clean URL list. It ex
 The extension provides two workflows:
 
 - **Scan status** — opens each profile in a temporary background tab and reports whether the account is already followed.
-- **Follow 10** — scans the whole list, but clicks Follow for at most 10 not-followed accounts in the current batch. Remaining accounts are marked as queued for the next batch.
+- **Follow 10** — scans only until 10 follow attempts have been made, then marks the remaining accounts as queued without opening their profiles.
 
 The most recent batch time is displayed in the popup. URL lists, results, and timestamps stay in `chrome.storage.local`; the extension does not send them to a server.
 
@@ -22,7 +22,9 @@ The most recent batch time is displayed in the popup. URL lists, results, and ti
 - Deduplicates accounts before scanning.
 - Enforces a hard maximum of 10 follow attempts per batch.
 - Shows Following, Followed, Not followed, Queued, Unavailable, and Failed states.
-- Uses temporary background tabs and closes them after each check.
+- Reuses one temporary background tab instead of opening and closing a tab for every account.
+- Adds a 3.5–5.3 second gap between profiles and a longer pause every 15 profiles.
+- Pauses automatically after three consecutive page errors to protect the X session.
 - Uses a dark, compact control-console popup designed for quick repeated batches.
 
 ## Installation (Chrome / Edge)
@@ -44,7 +46,7 @@ The most recent batch time is displayed in the popup. URL lists, results, and ti
 
 2. Click **Scan status** to audit without clicking Follow.
 3. Click **Follow 10** to process the next safe batch.
-4. Keep the X session logged in and avoid starting another batch until the current one finishes.
+4. Keep the X session logged in and avoid starting another batch until the current one finishes. The extension intentionally waits between profiles; this is expected.
 
 ## Development
 
@@ -66,6 +68,7 @@ The main pieces are:
 - X can change its DOM and button labels; selectors in `content.js` may need maintenance.
 - You must already be logged in to X in the browser profile.
 - A protected, unavailable, or rate-limited profile is reported instead of being forced.
+- Large scans are deliberately slow. If three consecutive profiles cannot be read, the job pauses and preserves the completed results.
 - This tool is provided for personal use. Follow X rules and applicable rate limits; review the list before starting a batch.
 
 ## License
@@ -84,9 +87,10 @@ X 关注巡检台是一个本地优先的 Manifest V3 浏览器插件，用于�
 
 ### 功能
 
-- **只检测状态**：逐个打开临时后台标签页，读取 Follow / Following 状态，不点击按钮。
-- **一键关注 10 个**：完整扫描当前列表，但每次最多点击 10 个未关注账号，其余标记为“待下批”。
+- **只检测状态**：复用一个临时后台标签页，读取 Follow / Following 状态，不点击按钮。
+- **一键关注 10 个**：只处理到本批次 10 次关注尝试，剩余账号直接标记为“待下批”，不会继续打开主页。
 - **状态展示**：已关注、刚刚关注、未关注、待下批、无法确认、检测失败。
+- **安全节流**：复用一个后台标签页，账号之间自动等待，每 15 个账号长暂停一次；连续 3 个主页异常会自动暂停。
 - **本地存储**：地址列表、结果和最近一次批次时间只保存在浏览器本地，不上传服务器。
 
 ### 安装与使用
