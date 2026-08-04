@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>X 关注巡检台</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">↗</span>
+        <div>
+          <p class="eyebrow">X / FOLLOW AUDIT</p>
+          <h1>关注巡检台</h1>
+        </div>
+      </div>
+      <span class="status-dot"><i></i>已连接</span>
+    </header>
+
+    <section class="hero-grid">
+      <div class="input-panel panel">
+        <div class="section-head">
+          <div>
+            <p class="kicker">01 / 导入目标</p>
+            <h2>粘贴 X 主页地址</h2>
+          </div>
+          <span class="count-badge" id="urlCount">0 条</span>
+        </div>
+        <textarea id="urlInput" spellcheck="false" placeholder="https://x.com/username\nhttps://x.com/another_account\n\n支持换行、空格或逗号分隔"></textarea>
+        <div class="input-foot">
+          <span class="helper-text">仅处理 x.com / twitter.com 主页</span>
+          <button class="text-button" id="clearButton" type="button">清空</button>
+        </div>
+      </div>
+
+      <aside class="batch-panel panel">
+        <div class="section-head">
+          <div>
+            <p class="kicker">02 / 安全节奏</p>
+            <h2>本批次上限</h2>
+          </div>
+          <span class="limit-number">10</span>
+        </div>
+        <p class="batch-copy">一键关注会从当前列表中按顺序处理未关注账号，最多点击 10 个。</p>
+        <div class="meter"><span id="meterFill"></span></div>
+        <div class="meter-label"><span id="meterText">等待任务</span><span>10 / 批</span></div>
+        <div class="last-run"><span>上次一键关注</span><strong id="lastBatchAt">尚未运行</strong></div>
+      </aside>
+    </section>
+
+    <section class="action-row">
+      <button class="primary-button" id="followButton" type="button"><span>一键关注 10 个</span><b>↗</b></button>
+      <button class="secondary-button" id="scanButton" type="button">只检测状态</button>
+      <p class="action-note" id="actionNote">打开 X 并保持登录，检测会在后台标签页进行。</p>
+    </section>
+
+    <section class="results-panel panel">
+      <div class="section-head results-head">
+        <div>
+          <p class="kicker">03 / 巡检结果</p>
+          <h2>账号状态</h2>
+        </div>
+        <div class="summary" id="summary">等待导入地址</div>
+      </div>
+      <div class="result-list" id="resultList">
+        <div class="empty-state"><span>◎</span><p>粘贴一组主页地址，开始第一次巡检</p></div>
+      </div>
+    </section>
+
+    <footer><span>LOCAL ONLY · 不上传账号列表</span><span>v0.1</span></footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
