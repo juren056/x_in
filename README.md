@@ -46,7 +46,8 @@ The most recent batch time is displayed in the popup. URL lists, results, and ti
 
 2. Click **Scan status** to audit without clicking Follow.
 3. Click **Follow 10** to process the next safe batch.
-4. Keep the X session logged in and avoid starting another batch until the current one finishes. The extension intentionally waits between profiles; this is expected.
+4. Click **Stop current task** whenever you need to stop; completed results are preserved and unprocessed accounts are queued.
+5. Keep the X session logged in and avoid starting another batch until the current one finishes. The extension intentionally waits between profiles; this is expected.
 
 ## Development
 
@@ -99,6 +100,7 @@ X 关注巡检台是一个本地优先的 Manifest V3 浏览器插件，用于�
 2. 选择“加载已解压的扩展程序”，指向本仓库目录。
 3. 登录 X 后打开插件，粘贴任意包含 X 链接的文本。
 4. 点击“只检测状态”或“一键关注 10 个”。
+5. 任务运行时可以点击“停止当前任务”，已完成结果会保留。
 
 ### 开发测试
 

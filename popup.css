@@ -65,12 +65,14 @@ textarea::placeholder { color: #536067; }
 .last-run strong { color: var(--yellow); font: 10px 'Cascadia Mono', Consolas, monospace; }
 .action-row { display: grid; grid-template-columns: 1.25fr .75fr; gap: 12px; margin: 14px 0 20px; align-items: center; }
 button { font-family: inherit; }
-.primary-button, .secondary-button { min-height: 45px; border: 1px solid; cursor: pointer; transition: transform .16s, background .16s, color .16s; }
+.primary-button, .secondary-button, .stop-button { min-height: 45px; border: 1px solid; cursor: pointer; transition: transform .16s, background .16s, color .16s; }
 .primary-button { display: flex; justify-content: space-between; align-items: center; padding: 0 14px; border-color: var(--teal); background: var(--teal); color: #10201e; font-weight: 700; }
 .primary-button b { font-size: 18px; font-weight: 400; }
 .secondary-button { border-color: #445157; background: transparent; color: var(--text); font-size: 12px; }
 .primary-button:hover, .secondary-button:hover { transform: translateY(-2px); }
 .secondary-button:hover { border-color: var(--teal); color: var(--teal); }
+.stop-button { grid-column: 1 / -1; border-color: rgba(255,142,118,.55); background: rgba(255,142,118,.08); color: var(--coral); font-size: 11px; }
+.stop-button:hover { border-color: var(--coral); background: rgba(255,142,118,.16); transform: translateY(-2px); }
 button:disabled { opacity: .45; transform: none !important; cursor: wait; }
 .action-note { grid-column: 1 / -1; color: #68767c; font: 9px 'DM Mono', monospace; }
 .results-panel { min-height: 214px; }

@@ -7,6 +7,7 @@ const elements = {
   clear: document.querySelector("#clearButton"),
   follow: document.querySelector("#followButton"),
   scan: document.querySelector("#scanButton"),
+  stop: document.querySelector("#stopButton"),
   note: document.querySelector("#actionNote"),
   list: document.querySelector("#resultList"),
   summary: document.querySelector("#summary"),
@@ -26,9 +27,10 @@ elements.clear.addEventListener("click", () => {
 });
 elements.scan.addEventListener("click", () => startJob("scan"));
 elements.follow.addEventListener("click", () => startJob("follow"));
+elements.stop.addEventListener("click", stopJob);
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "job-progress" || message?.type === "job-complete") renderJob(message.job);
-  if (message?.type === "job-paused") renderJob(message.job);
+  if (message?.type === "job-paused" || message?.type === "job-stopped") renderJob(message.job);
   if (message?.type === "job-error") {
     setBusy(false);
     elements.note.textContent = message.job?.error || "任务失败，请稍后重试";
@@ -65,13 +67,28 @@ async function startJob(mode) {
   }
 }
 
+async function stopJob() {
+  elements.stop.disabled = true;
+  elements.note.textContent = "正在停止，当前页面关闭后任务会结束…";
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "stop-job" });
+    if (!response?.ok) {
+      setBusy(false);
+      elements.note.textContent = response?.error || "当前没有正在运行的任务";
+    }
+  } catch {
+    setBusy(false);
+    elements.note.textContent = "停止请求失败，请重新打开插件查看状态";
+  }
+}
+
 function renderJob(job) {
   if (!job) return;
   renderResults(job.results || [], job.urls.length, job.followed || 0, job.status);
   const processed = job.results?.length || 0;
   const percent = job.mode === "follow" ? Math.min((job.followed / MAX_FOLLOWS_PER_BATCH) * 100, 100) : (processed / job.urls.length) * 100;
   elements.meterFill.style.width = `${Number.isFinite(percent) ? percent : 0}%`;
-  elements.meterText.textContent = job.status === "complete" ? `${processed} 个已完成` : job.status === "paused" ? "已暂停保护" : job.phase === "cooldown" ? "安全等待中" : `正在处理 ${Math.min(job.current, job.urls.length)} / ${job.urls.length}`;
+  elements.meterText.textContent = job.status === "complete" ? `${processed} 个已完成` : job.status === "paused" ? "已暂停保护" : job.status === "stopped" ? "已手动停止" : job.phase === "stopping" ? "正在停止" : job.phase === "cooldown" ? "安全等待中" : `正在处理 ${Math.min(job.current, job.urls.length)} / ${job.urls.length}`;
   if (job.phase === "cooldown") {
     elements.note.textContent = "安全等待中：复用同一个后台标签页，避免连续请求 X…";
   }
@@ -85,10 +102,15 @@ function renderJob(job) {
     elements.note.textContent = job.error || "任务已暂停，请等待 X 恢复后再继续";
     if (job.mode === "follow" && job.completedAt) elements.lastBatch.textContent = formatTime(job.completedAt);
   }
+  if (job.status === "stopped") {
+    setBusy(false);
+    elements.note.textContent = "任务已手动停止，已完成结果已保留";
+    if (job.mode === "follow" && job.completedAt) elements.lastBatch.textContent = formatTime(job.completedAt);
+  }
 }
 
 function renderResults(results, total, followed, status) {
-  elements.summary.textContent = status === "running" || status === "paused" ? `${results.length} / ${total} 已处理` : `${followed} 个已关注 · ${total} 个总计`;
+  elements.summary.textContent = status === "running" || status === "paused" || status === "stopped" ? `${results.length} / ${total} 已处理` : `${followed} 个已关注 · ${total} 个总计`;
   if (!results.length) {
     elements.list.innerHTML = '<div class="empty-state"><span>◎</span><p>粘贴一组主页地址，开始第一次巡检</p></div>';
     return;
@@ -108,6 +130,8 @@ function renderResults(results, total, followed, status) {
 function setBusy(busy) {
   elements.follow.disabled = busy;
   elements.scan.disabled = busy;
+  elements.stop.hidden = !busy;
+  elements.stop.disabled = false;
 }
 
 function updateCount() {

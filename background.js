@@ -46,6 +46,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ job: activeJob });
     return true;
   }
+
+  if (message?.type === "stop-job") {
+    if (activeJob?.status !== "running") {
+      sendResponse({ ok: false, error: "当前没有正在运行的任务" });
+      return true;
+    }
+    activeJob.cancelRequested = true;
+    activeJob.phase = "stopping";
+    persistJob();
+    if (activeJob.workerTabId) {
+      chrome.tabs.remove(activeJob.workerTabId).catch(() => {
+        // The worker tab may already be closed.
+      });
+    }
+    broadcast({ type: "job-progress", job: activeJob });
+    sendResponse({ ok: true });
+    return true;
+  }
 });
 
 async function runJob(job) {
@@ -55,12 +73,22 @@ async function runJob(job) {
 
   try {
     for (let index = 0; index < job.urls.length; index += 1) {
+      if (job.cancelRequested) {
+        appendQueuedResults(job, index, "已手动停止，未处理");
+        job.status = "stopped";
+        break;
+      }
       if (job.mode === "follow" && job.attempted >= MAX_FOLLOWS_PER_BATCH) {
         appendQueuedResults(job, index, "本批次已达 10 个关注上限");
         break;
       }
 
       await waitBetweenProfiles(job, index);
+      if (job.cancelRequested) {
+        appendQueuedResults(job, index, "已手动停止，未处理");
+        job.status = "stopped";
+        break;
+      }
       job.current = index + 1;
       job.phase = "loading";
       const url = job.urls[index];
@@ -72,6 +100,11 @@ async function runJob(job) {
       try {
         result = await inspectUrl(tab.id, url, shouldFollow);
       } catch (error) {
+        if (job.cancelRequested) {
+          appendQueuedResults(job, index, "已手动停止，未处理");
+          job.status = "stopped";
+          break;
+        }
         result = {
           url,
           handle: handleFromUrl(url),
@@ -107,7 +140,7 @@ async function runJob(job) {
       }
     }
 
-    if (job.status !== "paused") job.status = "complete";
+    if (job.status !== "paused" && job.status !== "stopped") job.status = "complete";
     job.phase = job.status;
     job.completedAt = new Date().toISOString();
     if (job.mode === "follow") {
@@ -115,7 +148,8 @@ async function runJob(job) {
     }
     await chrome.storage.local.set({ lastResults: job.results, lastMode: job.mode });
     persistJob();
-    broadcast({ type: job.status === "paused" ? "job-paused" : "job-complete", job });
+    const eventType = job.status === "paused" ? "job-paused" : job.status === "stopped" ? "job-stopped" : "job-complete";
+    broadcast({ type: eventType, job });
   } finally {
     try {
       await chrome.tabs.remove(tab.id);
@@ -144,16 +178,21 @@ function navigateAndWait(tabId, url) {
     const onUpdated = (updatedTabId, changeInfo) => {
       if (updatedTabId === tabId && changeInfo.status === "complete") finish();
     };
+    const onRemoved = (removedTabId) => {
+      if (removedTabId === tabId) finish(new Error("标签页已关闭"));
+    };
 
     function finish(error) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       chrome.tabs.onUpdated.removeListener(onUpdated);
+      chrome.tabs.onRemoved.removeListener(onRemoved);
       error ? reject(error) : resolve();
     }
 
     chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.onRemoved.addListener(onRemoved);
     chrome.tabs.update(tabId, { url }).catch(() => finish(new Error("标签页已关闭")));
   });
 }
@@ -166,7 +205,21 @@ async function waitBetweenProfiles(job, index) {
   job.nextActionAt = new Date(Date.now() + waitMs).toISOString();
   broadcast({ type: "job-progress", job });
   persistJob();
-  await new Promise((resolve) => setTimeout(resolve, waitMs));
+  await waitForDuration(waitMs, job);
+}
+
+function waitForDuration(durationMs, job) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + durationMs;
+    const tick = () => {
+      if (job.cancelRequested || Date.now() >= deadline) {
+        resolve();
+        return;
+      }
+      setTimeout(tick, 250);
+    };
+    tick();
+  });
 }
 
 function appendQueuedResults(job, startIndex, message) {
