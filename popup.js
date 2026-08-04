@@ -1,3 +1,5 @@
+import { parseXUrls } from "./url-utils.js";
+
 const MAX_FOLLOWS_PER_BATCH = 10;
 const elements = {
   input: document.querySelector("#urlInput"),
@@ -105,13 +107,7 @@ function updateCount() {
 }
 
 function parseUrls(value) {
-  return [...new Set(value.split(/[\s,，]+/).map((item) => item.trim()).filter((item) => {
-    try {
-      const url = new URL(item);
-      const [handle] = url.pathname.split("/").filter(Boolean);
-      return /^https?:$/.test(url.protocol) && /^(www\.)?(x\.com|twitter\.com)$/i.test(url.hostname) && handle && !["home", "explore", "notifications", "messages", "i", "settings"].includes(handle.toLowerCase());
-    } catch { return false; }
-  }))];
+  return parseXUrls(value);
 }
 
 function formatTime(value) {

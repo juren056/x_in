@@ -1,3 +1,5 @@
+import { parseXUrls } from "./url-utils.js";
+
 const MAX_FOLLOWS_PER_BATCH = 10;
 const PAGE_TIMEOUT_MS = 18000;
 
@@ -10,7 +12,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
     }
 
-    const urls = normalizeUrls(message.urls || []);
+    const urls = parseXUrls(message.urls || []);
     if (!urls.length) {
       sendResponse({ ok: false, error: "没有可用的 X 主页地址" });
       return;
@@ -139,20 +141,6 @@ async function sendToTab(tabId, message) {
     }
   }
   throw new Error(lastError?.message || "无法连接 X 页面");
-}
-
-function normalizeUrls(urls) {
-  return [...new Set(urls.map((value) => {
-    try {
-      const candidate = new URL(value.trim());
-      if (!/^https?:$/.test(candidate.protocol) || !/^(www\.)?(x\.com|twitter\.com)$/i.test(candidate.hostname)) return null;
-      const [handle] = candidate.pathname.split("/").filter(Boolean);
-      if (!handle || ["home", "explore", "notifications", "messages", "i", "settings"].includes(handle.toLowerCase())) return null;
-      return `https://x.com/${handle.replace(/^@/, "")}`;
-    } catch {
-      return null;
-    }
-  }).filter(Boolean))];
 }
 
 function handleFromUrl(url) {

@@ -30,7 +30,7 @@
         </div>
         <textarea id="urlInput" spellcheck="false" placeholder="https://x.com/username\nhttps://x.com/another_account\n\n支持换行、空格或逗号分隔"></textarea>
         <div class="input-foot">
-          <span class="helper-text">仅处理 x.com / twitter.com 主页</span>
+          <span class="helper-text">自动忽略序号、中文备注与推文路径</span>
           <button class="text-button" id="clearButton" type="button">清空</button>
         </div>
       </div>
@@ -71,6 +71,6 @@
 
     <footer><span>LOCAL ONLY · 不上传账号列表</span><span>v0.1</span></footer>
   </main>
-  <script src="popup.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>
