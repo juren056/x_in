@@ -1,4 +1,4 @@
-import { parseXUrls } from "./url-utils.js";
+import { filterNotFollowingUrls, normalizeHandle, parseXUrls } from "./url-utils.js";
 
 const MAX_FOLLOWS_PER_BATCH = 10;
 const PAGE_TIMEOUT_MS = 18000;
@@ -67,7 +67,32 @@ async function runJob(job) {
   persistJob();
 
   try {
-    for (let index = 0; index < job.urls.length; index += 1) {
+    job.phase = "syncing";
+    broadcast({ type: "job-progress", job });
+    let followingHandles;
+    try {
+      followingHandles = await syncFollowing(tab.id);
+    } catch (error) {
+      if (job.cancelRequested) {
+        job.status = "stopped";
+        job.error = "任务已手动停止，已完成结果已保留";
+        await finalizeJob(job);
+        return;
+      }
+      throw error;
+    }
+    job.followingHandles = followingHandles;
+    job.remainingUrls = filterNotFollowingUrls(job.urls, followingHandles);
+    job.pendingUrls = job.remainingUrls.slice();
+    job.pendingIndex = 0;
+    job.results = job.urls
+      .filter((url) => !job.pendingUrls.includes(url))
+      .map((url) => ({ url, handle: `@${handleFromUrl(url)}`, status: "following", message: "已在我的关注列表" }));
+    await chrome.storage.local.set({ draftUrls: job.remainingUrls.join("\n"), followingHandles, followingSyncedAt: new Date().toISOString() });
+    broadcast({ type: "job-progress", job });
+    persistJob();
+
+    for (let index = 0; index < job.pendingUrls.length; index += 1) {
       if (job.cancelRequested) {
         appendQueuedResults(job, index, "已手动停止，未处理");
         job.status = "stopped";
@@ -84,9 +109,9 @@ async function runJob(job) {
         job.status = "stopped";
         break;
       }
-      job.current = index + 1;
+      job.current = job.results.length + 1;
       job.phase = "loading";
-      const url = job.urls[index];
+      const url = job.pendingUrls[index];
       const shouldFollow = job.mode === "follow" && job.attempted < MAX_FOLLOWS_PER_BATCH;
       broadcast({ type: "job-progress", job });
       persistJob();
@@ -125,6 +150,7 @@ async function runJob(job) {
       }
       await rememberFollowedResult(job, result);
       job.results.push(result);
+      job.pendingIndex = index + 1;
       broadcast({ type: "job-progress", job });
       persistJob();
 
@@ -156,6 +182,20 @@ async function inspectUrl(tabId, url, shouldFollow) {
   });
   if (!response?.ok) throw new Error(response?.message || "无法读取主页状态");
   return { url, ...response.data };
+}
+
+async function syncFollowing(tabId) {
+  await navigateAndWait(tabId, "https://x.com/home");
+  const profile = await sendToTab(tabId, { type: "discover-own-handle" });
+  if (!profile?.ok || !profile.handle) {
+    throw new Error(profile?.message || "无法识别当前登录账号");
+  }
+  await navigateAndWait(tabId, `https://x.com/${profile.handle}/following`);
+  const response = await sendToTab(tabId, { type: "collect-following" });
+  if (!response?.ok || !Array.isArray(response.handles)) {
+    throw new Error(response?.message || "无法读取我的关注列表");
+  }
+  return response.handles.map(normalizeHandle);
 }
 
 function navigateAndWait(tabId, url) {
@@ -210,8 +250,9 @@ function waitForDuration(durationMs, job) {
 }
 
 function appendQueuedResults(job, startIndex, message) {
-  for (let index = startIndex; index < job.urls.length; index += 1) {
-    const url = job.urls[index];
+  const pendingUrls = job.pendingUrls || job.urls;
+  for (let index = startIndex; index < pendingUrls.length; index += 1) {
+    const url = pendingUrls[index];
     job.results.push({
       url,
       handle: handleFromUrl(url),
@@ -219,6 +260,7 @@ function appendQueuedResults(job, startIndex, message) {
       message
     });
   }
+  job.pendingIndex = pendingUrls.length;
   job.current = job.urls.length;
 }
 
@@ -266,7 +308,7 @@ async function stopActiveJob(sendResponse) {
   }
 
   if (!activeRunPromise) {
-    appendQueuedResults(activeJob, activeJob.results?.length || 0, "已手动停止，未处理");
+    appendQueuedResults(activeJob, activeJob.pendingIndex || 0, "已手动停止，未处理");
     activeJob.status = "stopped";
     activeJob.error = "任务已手动停止，已完成结果已保留";
     await finalizeJob(activeJob);

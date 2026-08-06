@@ -6,11 +6,11 @@ English is the default documentation. [中文说明](#中文说明) is included 
 
 ## What it does
 
-X Follow Audit accepts pasted text rather than requiring a clean URL list. It extracts X profile links from lines that contain numbering, Chinese or English display names, comments, tweet URLs, and mixed separators. Tweet links such as `/status/...` are normalized to the account homepage and duplicate accounts are removed.
+X Follow Audit accepts pasted text rather than requiring a clean URL list. Before checking targets, it first reads your own X following list once and filters out accounts you already follow. It then extracts X profile links from lines that contain numbering, Chinese or English display names, comments, tweet URLs, and mixed separators. Tweet links such as `/status/...` are normalized to the account homepage and duplicate accounts are removed.
 
 The extension provides two workflows:
 
-- **Scan status** — opens each profile in a temporary background tab and reports whether the account is already followed.
+- **Scan status** — synchronizes your following list first, then opens only profiles not present in that list.
 - **Follow 10** — scans only until 10 follow attempts have been made, then marks the remaining accounts as queued without opening their profiles.
 
 The most recent batch time is displayed in the popup. URL lists, results, and timestamps stay in `chrome.storage.local`; the extension does not send them to a server.
@@ -46,8 +46,8 @@ The most recent batch time is displayed in the popup. URL lists, results, and ti
    Alice https://x.com/another_user/status/123456789?s=20 必回关
    ```
 
-2. Click **Scan status** to audit without clicking Follow.
-3. Click **Follow 10** to process the next safe batch.
+2. Click **Scan status** to synchronize and audit without clicking Follow.
+3. Click **Follow 10** to synchronize and process the next safe batch.
 4. Click **Stop current task** whenever you need to stop; completed results are preserved and unprocessed accounts are queued.
 5. Keep the X session logged in and avoid starting another batch until the current one finishes. The extension intentionally waits between profiles; this is expected.
 
@@ -90,7 +90,8 @@ X 关注巡检台是一个本地优先的 Manifest V3 浏览器插件，用于�
 
 ### 功能
 
-- **只检测状态**：复用一个临时后台标签页，读取 Follow / Following 状态，不点击按钮。
+- **先比对关注列表**：先识别当前登录账号并读取 `/<用户名>/following`，已关注账号直接标记，不再打开其主页。
+- **只检测状态**：对比后只复用一个临时后台标签页读取未关注账号状态，不点击按钮。
 - **一键关注 10 个**：只处理到本批次 10 次关注尝试，剩余账号直接标记为“待下批”，不会继续打开主页。
 - **状态展示**：已关注、刚刚关注、未关注、待下批、无法确认、检测失败。
 - **自动清理**：检测为已关注或本次关注成功后，立即从本地待处理列表移除，后续批次不再重复打开。
@@ -103,7 +104,7 @@ X 关注巡检台是一个本地优先的 Manifest V3 浏览器插件，用于�
 1. 打开 Chrome 或 Edge 扩展管理页并开启开发者模式。
 2. 选择“加载已解压的扩展程序”，指向本仓库目录。
 3. 登录 X 后打开插件，粘贴任意包含 X 链接的文本。
-4. 点击“只检测状态”或“一键关注 10 个”。
+4. 点击“只检测状态”或“一键关注 10 个”，插件会先同步你的 following 列表。
 5. 任务运行时可以点击“停止当前任务”，已完成结果会保留。
 
 ### 开发测试

@@ -1,4 +1,20 @@
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "discover-own-handle") {
+    discoverOwnHandle().then((handle) => {
+      sendResponse({ ok: true, handle });
+    }).catch((error) => {
+      sendResponse({ ok: false, message: error instanceof Error ? error.message : "无法识别当前账号" });
+    });
+    return true;
+  }
+  if (message?.type === "collect-following") {
+    collectFollowing().then((handles) => {
+      sendResponse({ ok: true, handles });
+    }).catch((error) => {
+      sendResponse({ ok: false, message: error instanceof Error ? error.message : "无法读取关注列表" });
+    });
+    return true;
+  }
   if (message?.type !== "inspect-profile") return;
   inspectProfile(Boolean(message.follow)).then((data) => {
     sendResponse({ ok: true, data });
@@ -7,6 +23,86 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   });
   return true;
 });
+
+async function collectFollowing() {
+  if (!/\/following\/?$/i.test(location.pathname)) {
+    throw new Error("未打开我的关注列表");
+  }
+  await waitForPageReady();
+  const handles = new Set();
+  for (let attempt = 0; attempt < 12 && !handles.size; attempt += 1) {
+    collectVisibleProfileLinks(handles);
+    if (!handles.size) await delay(400);
+  }
+  let stagnantRounds = 0;
+  let previousSize = handles.size;
+  for (let round = 0; round < 40; round += 1) {
+    collectVisibleProfileLinks(handles);
+    stagnantRounds = handles.size === previousSize ? stagnantRounds + 1 : 0;
+    previousSize = handles.size;
+    if (stagnantRounds >= 4) break;
+    window.scrollBy({ top: Math.max(window.innerHeight * 0.85, 560), behavior: "auto" });
+    await delay(650);
+  }
+  if (!handles.size) throw new Error("未找到关注列表，请确认已登录 X");
+  return [...handles];
+}
+
+async function discoverOwnHandle() {
+  await waitForPageReady();
+  const selectors = [
+    'a[data-testid="AppTabBar_Profile_Link"]',
+    'a[aria-label="Profile"]',
+    'a[aria-label="个人资料"]'
+  ];
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (const selector of selectors) {
+      const link = document.querySelector(selector);
+      const handle = profileHandleFromHref(link?.href);
+      if (handle) return handle;
+    }
+    await delay(400);
+  }
+  throw new Error("无法识别当前登录账号，请确认已登录 X");
+}
+
+function profileHandleFromHref(href) {
+  if (!href) return null;
+  try {
+    const [handle] = new URL(href).pathname.split("/").filter(Boolean);
+    return /^[A-Za-z0-9_]{1,15}$/.test(handle || "") ? handle : null;
+  } catch {
+    return null;
+  }
+}
+
+function collectVisibleProfileLinks(handles) {
+  const reserved = new Set(["home", "explore", "notifications", "messages", "i", "settings", "search", "compose"]);
+  for (const anchor of document.querySelectorAll('main a[href^="/"]')) {
+    try {
+      const path = new URL(anchor.href).pathname.split("/").filter(Boolean);
+      if (path.length !== 1) continue;
+      const handle = path[0].replace(/^@/, "");
+      if (/^[A-Za-z0-9_]{1,15}$/.test(handle) && !reserved.has(handle.toLowerCase())) {
+        handles.add(handle.toLowerCase());
+      }
+    } catch {}
+  }
+}
+
+function waitForPageReady() {
+  return new Promise((resolve) => {
+    if (document.readyState === "complete") {
+      setTimeout(resolve, 800);
+      return;
+    }
+    window.addEventListener("load", () => setTimeout(resolve, 800), { once: true });
+  });
+}
+
+function delay(duration) {
+  return new Promise((resolve) => setTimeout(resolve, duration));
+}
 
 async function inspectProfile(shouldFollow) {
   await waitForProfileControls();

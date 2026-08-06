@@ -43,9 +43,9 @@ async function init() {
   urls = parseUrls(elements.input.value);
   if (saved.lastBatchAt) elements.lastBatch.textContent = formatTime(saved.lastBatchAt);
   if (saved.lastResults?.length) renderResults(saved.lastResults, saved.lastResults.length, saved.lastResults.filter((item) => item.status === "followed").length, "complete");
-  if (saved.activeJob?.status === "running") {
+  if (["running", "paused", "stopped"].includes(saved.activeJob?.status)) {
     renderJob(saved.activeJob);
-    setBusy(true);
+    setBusy(saved.activeJob.status === "running");
   }
   updateCount();
 }
@@ -59,7 +59,7 @@ async function startJob(mode) {
   }
   await chrome.storage.local.set({ draftUrls: elements.input.value });
   setBusy(true);
-  elements.note.textContent = mode === "follow" ? "正在逐个打开主页，本批次最多关注 10 个…" : "正在逐个打开主页并读取状态…";
+  elements.note.textContent = "正在先同步我的关注列表，之后只处理未关注账号…";
   const response = await chrome.runtime.sendMessage({ type: "run-job", mode, urls });
   if (!response?.ok) {
     setBusy(false);
@@ -89,9 +89,12 @@ function renderJob(job) {
   const processed = job.results?.length || 0;
   const percent = job.mode === "follow" ? Math.min((job.followed / MAX_FOLLOWS_PER_BATCH) * 100, 100) : (processed / job.urls.length) * 100;
   elements.meterFill.style.width = `${Number.isFinite(percent) ? percent : 0}%`;
-  elements.meterText.textContent = job.status === "complete" ? `${processed} 个已完成` : job.status === "paused" ? "已暂停保护" : job.status === "stopped" ? "已手动停止" : job.phase === "stopping" ? "正在停止" : job.phase === "cooldown" ? "安全等待中" : `正在处理 ${Math.min(job.current, job.urls.length)} / ${job.urls.length}`;
+  elements.meterText.textContent = job.status === "complete" ? `${processed} 个已完成` : job.status === "paused" ? "已暂停保护" : job.status === "stopped" ? "已手动停止" : job.phase === "syncing" ? "同步我的关注列表" : job.phase === "stopping" ? "正在停止" : job.phase === "cooldown" ? "安全等待中" : `正在处理 ${Math.min(job.current, job.urls.length)} / ${job.urls.length}`;
   if (job.phase === "cooldown") {
     elements.note.textContent = "安全等待中：复用同一个后台标签页，避免连续请求 X…";
+  }
+  if (job.phase === "syncing") {
+    elements.note.textContent = "正在读取我的 following 列表，已关注账号不会再打开主页…";
   }
   if (job.status === "complete") {
     setBusy(false);

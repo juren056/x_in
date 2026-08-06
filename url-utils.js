@@ -10,3 +10,15 @@ export function parseXUrls(value) {
   }
   return [...new Set(handles.map((handle) => `https://x.com/${handle}`))];
 }
+
+export function normalizeHandle(value) {
+  return String(value || "")
+    .replace(/^@/, "")
+    .trim()
+    .toLowerCase();
+}
+
+export function filterNotFollowingUrls(urls, followingHandles) {
+  const following = new Set([...followingHandles].map(normalizeHandle));
+  return urls.filter((url) => !following.has(normalizeHandle(url.split("/").filter(Boolean).pop())));
+}
