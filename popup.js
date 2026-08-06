@@ -84,6 +84,7 @@ async function stopJob() {
 
 function renderJob(job) {
   if (!job) return;
+  syncRemainingUrls(job);
   renderResults(job.results || [], job.urls.length, job.followed || 0, job.status);
   const processed = job.results?.length || 0;
   const percent = job.mode === "follow" ? Math.min((job.followed / MAX_FOLLOWS_PER_BATCH) * 100, 100) : (processed / job.urls.length) * 100;
@@ -137,6 +138,14 @@ function setBusy(busy) {
 function updateCount() {
   urls = parseUrls(elements.input.value);
   elements.count.textContent = `${urls.length} 条`;
+}
+
+function syncRemainingUrls(job) {
+  if (!job.results?.length || !Array.isArray(job.remainingUrls) || document.activeElement === elements.input) return;
+  const nextValue = job.remainingUrls.join("\n");
+  if (elements.input.value === nextValue) return;
+  elements.input.value = nextValue;
+  updateCount();
 }
 
 function parseUrls(value) {

@@ -20,11 +20,13 @@ The most recent batch time is displayed in the popup. URL lists, results, and ti
 - Extracts `x.com` and `twitter.com` links from unstructured pasted text.
 - Ignores list numbers, names, notes, query strings, and tweet paths.
 - Deduplicates accounts before scanning.
+- Removes accounts from the saved pending list immediately after they are detected as Following or successfully followed.
 - Enforces a hard maximum of 10 follow attempts per batch.
 - Shows Following, Followed, Not followed, Queued, Unavailable, and Failed states.
 - Reuses one temporary background tab instead of opening and closing a tab for every account.
 - Adds a 3.5–5.3 second gap between profiles and a longer pause every 15 profiles.
 - Pauses automatically after three consecutive page errors to protect the X session.
+- Keeps manual Stop effective even if the extension service worker has restarted during a long task.
 - Uses a dark, compact control-console popup designed for quick repeated batches.
 
 ## Installation (Chrome / Edge)
@@ -91,7 +93,9 @@ X 关注巡检台是一个本地优先的 Manifest V3 浏览器插件，用于�
 - **只检测状态**：复用一个临时后台标签页，读取 Follow / Following 状态，不点击按钮。
 - **一键关注 10 个**：只处理到本批次 10 次关注尝试，剩余账号直接标记为“待下批”，不会继续打开主页。
 - **状态展示**：已关注、刚刚关注、未关注、待下批、无法确认、检测失败。
+- **自动清理**：检测为已关注或本次关注成功后，立即从本地待处理列表移除，后续批次不再重复打开。
 - **安全节流**：复用一个后台标签页，账号之间自动等待，每 15 个账号长暂停一次；连续 3 个主页异常会自动暂停。
+- **可靠停止**：后台 service worker 重启后仍能恢复任务状态，手动停止会保留已完成结果并清理工作标签页。
 - **本地存储**：地址列表、结果和最近一次批次时间只保存在浏览器本地，不上传服务器。
 
 ### 安装与使用

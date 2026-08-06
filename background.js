@@ -9,6 +9,11 @@ const LONG_PAUSE_MS = 20000;
 const MAX_CONSECUTIVE_ERRORS = 3;
 
 let activeJob = null;
+let activeRunPromise = null;
+
+chrome.storage.local.get("activeJob").then(({ activeJob: savedJob }) => {
+  if (!activeJob && savedJob?.status === "running") activeJob = savedJob;
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "run-job") {
@@ -27,6 +32,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       id: crypto.randomUUID(),
       mode: message.mode === "follow" ? "follow" : "scan",
       urls,
+      remainingUrls: urls.slice(),
       status: "running",
       current: 0,
       followed: 0,
@@ -37,7 +43,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       results: []
     };
     persistJob();
-    runJob(activeJob).catch((error) => finishJobWithError(error));
+    activeRunPromise = runJob(activeJob).catch((error) => finishJobWithError(error)).finally(() => {
+      activeRunPromise = null;
+    });
     sendResponse({ ok: true, jobId: activeJob.id });
     return true;
   }
@@ -48,20 +56,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message?.type === "stop-job") {
-    if (activeJob?.status !== "running") {
-      sendResponse({ ok: false, error: "当前没有正在运行的任务" });
-      return true;
-    }
-    activeJob.cancelRequested = true;
-    activeJob.phase = "stopping";
-    persistJob();
-    if (activeJob.workerTabId) {
-      chrome.tabs.remove(activeJob.workerTabId).catch(() => {
-        // The worker tab may already be closed.
-      });
-    }
-    broadcast({ type: "job-progress", job: activeJob });
-    sendResponse({ ok: true });
+    stopActiveJob(sendResponse);
     return true;
   }
 });
@@ -128,6 +123,7 @@ async function runJob(job) {
       } else {
         job.consecutiveErrors = 0;
       }
+      await rememberFollowedResult(job, result);
       job.results.push(result);
       broadcast({ type: "job-progress", job });
       persistJob();
@@ -140,16 +136,7 @@ async function runJob(job) {
       }
     }
 
-    if (job.status !== "paused" && job.status !== "stopped") job.status = "complete";
-    job.phase = job.status;
-    job.completedAt = new Date().toISOString();
-    if (job.mode === "follow") {
-      await chrome.storage.local.set({ lastBatchAt: job.completedAt });
-    }
-    await chrome.storage.local.set({ lastResults: job.results, lastMode: job.mode });
-    persistJob();
-    const eventType = job.status === "paused" ? "job-paused" : job.status === "stopped" ? "job-stopped" : "job-complete";
-    broadcast({ type: eventType, job });
+    await finalizeJob(job);
   } finally {
     try {
       await chrome.tabs.remove(tab.id);
@@ -233,6 +220,62 @@ function appendQueuedResults(job, startIndex, message) {
     });
   }
   job.current = job.urls.length;
+}
+
+async function rememberFollowedResult(job, result) {
+  if (!["following", "followed"].includes(result.status)) return;
+  const remainingUrls = Array.isArray(job.remainingUrls) ? job.remainingUrls : job.urls.slice();
+  job.remainingUrls = remainingUrls.filter((url) => url !== result.url);
+  await chrome.storage.local.set({ draftUrls: job.remainingUrls.join("\n") });
+}
+
+async function finalizeJob(job) {
+  if (job.status !== "paused" && job.status !== "stopped") job.status = "complete";
+  job.phase = job.status;
+  job.completedAt = new Date().toISOString();
+  if (job.mode === "follow") {
+    await chrome.storage.local.set({ lastBatchAt: job.completedAt });
+  }
+  await chrome.storage.local.set({
+    lastResults: job.results,
+    lastMode: job.mode,
+    draftUrls: (job.remainingUrls || job.urls).join("\n")
+  });
+  persistJob();
+  const eventType = job.status === "paused" ? "job-paused" : job.status === "stopped" ? "job-stopped" : "job-complete";
+  broadcast({ type: eventType, job });
+}
+
+async function stopActiveJob(sendResponse) {
+  if (!activeJob) {
+    const saved = await chrome.storage.local.get("activeJob");
+    activeJob = saved.activeJob || null;
+  }
+  if (activeJob?.status !== "running") {
+    sendResponse({ ok: false, error: "当前没有正在运行的任务" });
+    return;
+  }
+
+  activeJob.cancelRequested = true;
+  activeJob.phase = "stopping";
+  persistJob();
+  if (activeJob.workerTabId) {
+    chrome.tabs.remove(activeJob.workerTabId).catch(() => {
+      // The worker tab may already be closed.
+    });
+  }
+
+  if (!activeRunPromise) {
+    appendQueuedResults(activeJob, activeJob.results?.length || 0, "已手动停止，未处理");
+    activeJob.status = "stopped";
+    activeJob.error = "任务已手动停止，已完成结果已保留";
+    await finalizeJob(activeJob);
+    delete activeJob.workerTabId;
+    persistJob();
+  } else {
+    broadcast({ type: "job-progress", job: activeJob });
+  }
+  sendResponse({ ok: true });
 }
 
 async function sendToTab(tabId, message) {
