@@ -3,74 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>X 关注巡检台</title>
+  <title>X 互关线索台</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <div class="brand-lockup">
-        <span class="brand-mark" aria-hidden="true">↗</span>
-        <div>
-          <p class="eyebrow">X / FOLLOW AUDIT</p>
-          <h1>关注巡检台</h1>
-        </div>
+      <div>
+        <p class="eyebrow">X / CONNECTION REVIEW</p>
+        <h1>互关线索台</h1>
       </div>
-      <span class="status-dot"><i></i>已连接</span>
+      <span class="local-tag">仅本地保存</span>
     </header>
 
-    <section class="hero-grid">
-      <div class="input-panel panel">
-        <div class="section-head">
-          <div>
-            <p class="kicker">01 / 导入目标</p>
-            <h2>粘贴 X 主页地址</h2>
-          </div>
-          <span class="count-badge" id="urlCount">0 条</span>
-        </div>
-        <textarea id="urlInput" spellcheck="false" placeholder="https://x.com/username\nhttps://x.com/another_account\n\n支持换行、空格或逗号分隔"></textarea>
-        <div class="input-foot">
-          <span class="helper-text">自动忽略序号、中文备注与推文路径</span>
-          <button class="text-button" id="clearButton" type="button">清空</button>
-        </div>
+    <section class="panel import-panel">
+      <div class="section-head">
+        <div><p class="kicker">01 / 导入</p><h2>帖子链接与原文</h2></div>
+        <span id="importCount" class="count-badge">0 个账号</span>
       </div>
-
-      <aside class="batch-panel panel">
-        <div class="section-head">
-          <div>
-            <p class="kicker">02 / 安全节奏</p>
-            <h2>本批次上限</h2>
-          </div>
-          <span class="limit-number">10</span>
-        </div>
-        <p class="batch-copy">先同步我的 following 列表，再处理未关注账号。每批最多点击 10 个。</p>
-        <div class="meter"><span id="meterFill"></span></div>
-        <div class="meter-label"><span id="meterText">等待任务</span><span>10 / 批</span></div>
-        <div class="last-run"><span>上次一键关注</span><strong id="lastBatchAt">尚未运行</strong></div>
-      </aside>
+      <textarea id="postInput" placeholder="每行一条：求互关，关注必回 https://x.com/example/status/123&#10;也可只粘贴帖子链接，稍后人工核对" spellcheck="false"></textarea>
+      <div class="row import-actions">
+        <p>仅导入帖子链接；同一账号只保留一条。文字需与链接在同一行。</p>
+        <button id="importButton" class="primary-button" type="button">导入候选</button>
+      </div>
     </section>
 
-    <section class="action-row">
-      <button class="primary-button" id="followButton" type="button"><span>一键关注 10 个</span><b>↗</b></button>
-      <button class="secondary-button" id="scanButton" type="button">只检测状态</button>
-      <button class="stop-button" id="stopButton" type="button" hidden>停止当前任务</button>
-      <p class="action-note" id="actionNote">打开 X 并保持登录；任务会复用一个后台标签页，避免频繁开关。</p>
+    <section class="panel template-panel">
+      <div class="section-head">
+        <div><p class="kicker">02 / 回复模板</p><h2>默认回复内容</h2></div>
+        <span id="templateCount" class="count-badge">0 字</span>
+      </div>
+      <textarea id="replyTemplate" placeholder="写下你常用的回复。每条候选都可单独修改。" spellcheck="false"></textarea>
+      <div class="row template-actions">
+        <p>模板自动保存在本地；修改模板不会覆盖已单独编辑的回复。</p>
+        <button id="applyTemplateButton" class="secondary-button" type="button">应用到待处理</button>
+      </div>
     </section>
 
-    <section class="results-panel panel">
+    <section class="panel results-panel">
       <div class="section-head results-head">
-        <div>
-          <p class="kicker">03 / 巡检结果</p>
-          <h2>账号状态</h2>
-        </div>
-        <div class="summary" id="summary">等待导入地址</div>
+        <div><p class="kicker">03 / 逐条处理</p><h2>候选帖子</h2></div>
+        <span id="summary" class="summary">0 待处理</span>
       </div>
-      <div class="result-list" id="resultList">
-        <div class="empty-state"><span>◎</span><p>粘贴一组主页地址，开始第一次巡检</p></div>
+      <div class="filter-row">
+        <button class="filter active" data-filter="pending" type="button">待处理</button>
+        <button class="filter" data-filter="all" type="button">全部</button>
+        <button class="filter" data-filter="replied" type="button">已回复</button>
+        <button class="filter" data-filter="skipped" type="button">已跳过</button>
+      </div>
+      <div id="candidateList" class="candidate-list">
+        <div class="empty-state">导入帖子后，在这里逐条查看和处理。</div>
       </div>
     </section>
-
-    <footer><span>LOCAL ONLY · 不上传账号列表</span><span>v0.1</span></footer>
+    <p id="notice" class="notice" role="status">关注和回复需在 X 页面由你逐条完成；此处记录处理状态。</p>
   </main>
   <script type="module" src="popup.js"></script>
 </body>
