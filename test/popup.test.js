@@ -1,38 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parsePostCandidates } from "../url-utils.js";
+import { filterNotFollowingUrls, parseXUrls } from "../url-utils.js";
 
-test("保留帖子链接、原文并识别明确互关文字", () => {
-  assert.deepEqual(parsePostCandidates("求互关，关注必回 https://twitter.com/Alice/status/123?s=20"), [{
-    id: "alice:123",
-    handle: "Alice",
-    postId: "123",
-    postUrl: "https://x.com/Alice/status/123",
-    profileUrl: "https://x.com/Alice",
-    postText: "求互关，关注必回",
-    intent: "matched"
-  }]);
+test("只保留有效 X 主页并去重", () => {
+  assert.deepEqual(parseXUrls("https://x.com/alice\nhttps://twitter.com/bob, https://x.com/alice"), [
+    "https://x.com/alice",
+    "https://x.com/bob"
+  ]);
 });
 
-test("只有链接时保留候选但要求人工核对", () => {
-  const result = parsePostCandidates("https://x.com/bob/status/456");
-  assert.equal(result.length, 1);
-  assert.equal(result[0].intent, "review");
-  assert.equal(result[0].postText, "");
+test("过滤 X 导航页和无效地址", () => {
+  assert.deepEqual(parseXUrls("https://x.com/home\nhttps://example.com/user\nnot-a-url"), []);
 });
 
-test("同一账号去重，优先保留明确求互关的帖子", () => {
-  const result = parsePostCandidates("https://x.com/Alice/status/1\n互粉 https://x.com/alice/status/2");
-  assert.equal(result.length, 1);
-  assert.equal(result[0].postId, "2");
-  assert.equal(result[0].intent, "matched");
+test("支持中文逗号和空格分隔", () => {
+  assert.deepEqual(parseXUrls("https://x.com/a，https://x.com/b https://x.com/c"), [
+    "https://x.com/a",
+    "https://x.com/b",
+    "https://x.com/c"
+  ]);
 });
 
-test("忽略主页、非 X 链接和没有数字帖子 ID 的地址", () => {
-  assert.deepEqual(parsePostCandidates("https://x.com/home\nhttps://example.com/a/status/1\nhttps://x.com/a/status/nope"), []);
+test("忽略序号、中文备注，并把推文地址还原为主页", () => {
+  assert.deepEqual(parseXUrls("22. 小龙成Hu https://x.com/AIJonHu/status/2084240192278503595?s=20\nhttps://x.com/LynneBuilds有关必回"), [
+    "https://x.com/AIJonHu",
+    "https://x.com/LynneBuilds"
+  ]);
 });
 
-test("否定互关意图需要人工核对", () => {
-  const result = parsePostCandidates("不互关，请勿打扰 https://x.com/alice/status/9");
-  assert.equal(result[0].intent, "review");
+test("先根据我的关注列表过滤已关注账号", () => {
+  assert.deepEqual(filterNotFollowingUrls([
+    "https://x.com/AlreadyFollowed",
+    "https://x.com/new_account"
+  ], ["alreadyfollowed"]), ["https://x.com/new_account"]);
 });

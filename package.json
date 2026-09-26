@@ -1,9 +1,9 @@
 {
-  "name": "x-connection-review-extension",
-  "version": "0.2.0",
+  "name": "x-follow-audit-extension",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "X 互关帖子候选筛选与人工处理扩展",
+  "description": "X 关注列表巡检与安全批次关注浏览器插件",
   "scripts": {
     "test": "node --test"
   }

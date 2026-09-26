@@ -1,31 +1,43 @@
-# X 互关线索台
+# X Follow Audit / X 关注巡检台
 
-本项目是一个本地优先的 Chrome / Edge Manifest V3 扩展，用于整理 X 上的互关帖子，并逐条记录人工处理结果。扩展不会自动关注账号或自动发表评论。
+A local Chrome / Edge Manifest V3 extension for collecting X account links, checking your following list, and processing up to 10 follow attempts per batch.
 
-## 安装
+## English
 
-1. 打开 Chrome 的 chrome://extensions 或 Edge 的 edge://extensions。
-2. 开启开发者模式，点击“加载已解压的扩展程序”。
-3. 选择本项目目录，登录 X 后打开扩展弹窗。
+### Workflow
 
-## 使用
+1. Click **Read For You**. The extension opens X Home in a background tab, selects the For You feed, scrolls, and collects unique post authors into the input list. You can also paste X profile or post URLs manually.
+2. Click **Scan status** or **Follow 10**. The extension reads your own following list first and removes accounts already followed from the pending list.
+3. It reuses one background tab to inspect remaining profiles. Follow 10 stops after 10 follow attempts and queues the rest. Stop preserves completed results.
+4. Progress, remaining URLs, results, and the last batch time are saved locally in the browser.
 
-1. 每行粘贴一条帖子链接，可在同一行附上帖子原文，例如：求互关，关注必回 https://x.com/example/status/123456789
-2. 点击“导入候选”。同一账号只保留一条候选。若没有粘贴原文，候选标为“待核对原帖”。
-3. 在“默认回复内容”中编辑常用回复。新候选会继承模板。点击“应用到待处理”可更新尚未单独编辑的草稿。
-4. 对每条候选打开原帖核对内容，按需检查关注状态、打开主页、编辑并复制回复。
-5. 在 X 页面由你自己完成关注与回复，再回到扩展标记“已关注”或“已回复”。跳过与重新处理也只修改本地记录。
+The For You feed is infinite. A single import stops after at most 40 scrolls or five scrolls without finding a new account. The result is the accounts encountered during that run, not every account that could ever appear on X.
 
-默认模板、单条草稿、候选队列与处理记录保存在 chrome.storage.local。修改某条草稿不会修改默认模板。重复导入不会覆盖已回复或跳过的处理记录。
+An editable reply helper is available below the results. It saves text locally and copies it to the clipboard. It does not post comments automatically.
 
-## 代码结构
+### Installation
 
-- popup.html / popup.css / popup.js：导入、模板编辑和逐条处理界面。
-- url-utils.js：帖子链接提取、互关文字识别和按账号去重。
-- candidate-store.js：候选合并与状态更新。
-- background.js / content.js：仅在用户点击“检查关注状态”时读取单个主页的关注按钮状态，不点击关注。
-- test/：解析、去重和状态保留测试。
+1. Open chrome://extensions or edge://extensions.
+2. Enable Developer mode and choose Load unpacked.
+3. Select this repository directory and log in to X.
 
-## 验证
+### Tests and limitations
 
-运行 npm test。由于 X 的页面结构和按钮标识可能变化，关注状态检查还需要在登录后的浏览器中手工验证；无法确认时显示“无法确认”。帖子原文由用户在导入时提供，扩展不会仅凭链接推断帖子内容，也不会自动扫描时间线。
+Run npm test. The test suite covers link parsing, the batch limit, and For You account collection. X can change its page structure or button labels; browser verification in a logged-in X session is still needed. Use the extension in line with X rules and applicable limits.
+
+## 中文说明
+
+### 工作流程
+
+1. 点击“读取首页为你推荐”。插件会在后台打开 X 首页、切换到“为你推荐”、滚动收集帖子作者，并把去重后的主页地址填入原来的输入框。也可以继续手动粘贴主页或帖子链接。
+2. 点击“只检测状态”或“一键关注 10 个”。插件先读取自己的 following 列表，过滤已关注账号。
+3. 插件复用一个后台标签页逐个检查剩余账号。“一键关注 10 个”最多尝试关注 10 个，剩余账号标为待下批。手动停止会保留已完成结果。
+4. 进度、待处理地址、结果和上次批次时间保存在浏览器本地。
+
+“为你推荐”是无限时间线。单次读取最多滚动 40 次，或连续 5 次没有新账号时提前结束；得到的是本次实际遇到的账号，不代表 X 上可能出现的全部账号。
+
+结果下方有独立的可编辑回复辅助框。文字保存在本地，可复制后自行到 X 原帖发送；插件不会自动评论。
+
+### 安装和验证
+
+打开 Chrome 或 Edge 扩展管理页，开启开发者模式并加载本目录。先登录 X，再运行插件。运行 npm test 可以检查解析、批次限制和账号收集逻辑。X 的页面结构可能变化，仍需在已登录的浏览器中验证页面读取与关注状态识别。
