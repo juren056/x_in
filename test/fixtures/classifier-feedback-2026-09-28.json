@@ -1,0 +1,59 @@
+{
+  "source": "classifier-feedback-2026-09-28-043817-881.json",
+  "samples": [
+    {
+      "postUrl": "https://x.com/hua7248/status/2104112156807700809",
+      "handle": "hua7248",
+      "text": "现在蓝朋友真的好难找啊\n从别人列表里关注的人都很少会回关\n有什么办法能认识更多新朋友吗？",
+      "shouldMatch": true
+    },
+    {
+      "postUrl": "https://x.com/TianCai67/status/2104189618904031697",
+      "handle": "tiancai67",
+      "text": "冒个泡，扩大下交际圈。\n\n还在活跃更推的蓝V朋友，出来打个招呼吧？不求互刷数据，只想交几个真实、有趣、有思考的推友。\n\n有同感的，评论区见 \n\n看到回关，永不取关\n#蓝V互关互粉 #follow",
+      "shouldMatch": true
+    },
+    {
+      "postUrl": "https://x.com/Cao_huaye/status/2104067207152205864",
+      "handle": "cao_huaye",
+      "text": "这个号过个节完全没法看\n\n来点新朋友吧，我好饥渴啊",
+      "shouldMatch": true
+    },
+    {
+      "postUrl": "https://x.com/BeWaterDylan/status/2104373399581782359",
+      "handle": "bewaterdylan",
+      "text": "X 上最宝贵的\n\n是爱跟你互动的朋友\n\n你有几个？\n\n记得把我算上",
+      "shouldMatch": true
+    },
+    {
+      "postUrl": "https://x.com/0x0leslie/status/2104162278023283089",
+      "handle": "0x0leslie",
+      "text": "X 上最有用的动作：\n\n跟一个和你体量差不多的人，\n像我这种小蓝V，\n认真互动几次。",
+      "shouldMatch": true
+    },
+    {
+      "postUrl": "https://x.com/SicanianSun/status/2104116981465272719",
+      "handle": "sicaniansun",
+      "text": "今天有希望破5K吗？ #浇友 #蓝V",
+      "shouldMatch": true
+    },
+    {
+      "postUrl": "https://x.com/mayxhen/status/2104112497930219694",
+      "handle": "mayxhen",
+      "text": "不知不觉 8000fo 啦！！\n\n感谢所有新老朋友的关注\n\n接下来，新目标：10000fo\n\n看看我多久能够达到？？\n\n保持关注，继续交友，常常互动 ",
+      "shouldMatch": true
+    },
+    {
+      "postUrl": "https://x.com/TianCai67/status/2104073499341918702",
+      "handle": "tiancai67",
+      "text": "也冒个泡，扩大下交际圈。\n\n还在活跃更推的蓝V朋友，出来打个招呼吧？不求互刷数据，只想交几个真实、有趣、有思考的推友。\n\n有同感的，评论区见 \n\n看到回关，永不取关\n#蓝V互关互粉 #follow",
+      "shouldMatch": true
+    },
+    {
+      "postUrl": "https://x.com/smarttu0918/status/2104224865851207951",
+      "handle": "smarttu0918",
+      "text": "低于2000粉丝的加我之后，来我这个贴子留言，我会让你们知道，有来必有往是什么意思！！！\n（没有其他意思，2000以上粉丝的，大部分都是点头之交了）",
+      "shouldMatch": true
+    }
+  ]
+}

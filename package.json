@@ -1,10 +1,10 @@
 {
   "name": "x-follow-audit-extension",
-  "version": "0.3.0",
+  "version": "0.5.19",
   "private": true,
   "type": "module",
   "description": "X 关注列表巡检与安全批次关注浏览器插件",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   }
 }

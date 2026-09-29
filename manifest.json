@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "X 关注巡检台",
-  "version": "0.3.0",
+  "version": "0.5.19",
   "description": "批量检测 X 主页关注状态，并以每批最多 10 个的节奏完成关注。",
-  "permissions": ["storage", "tabs", "clipboardWrite"],
+  "permissions": ["storage", "tabs", "clipboardWrite", "nativeMessaging", "unlimitedStorage"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
   "background": {
     "service_worker": "background.js",

@@ -1,0 +1,9 @@
+{
+    "path":  "E:\\GitHub\\x_in\\native-host\\AuditHost.exe",
+    "description":  "Local classifier feedback writer for X Follow Audit",
+    "name":  "com.xfollow.audit",
+    "allowed_origins":  [
+                            "chrome-extension://limahkbehklfepicllaboacnggnjbgcp/"
+                        ],
+    "type":  "stdio"
+}
